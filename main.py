@@ -63,12 +63,15 @@ def main():
         parser = argparse.ArgumentParser(description="Script para la extracción pública de información de un dominio.")
         parser.add_argument("-d","--dominio",help="Parámetro utilizado para introducir el dominio.")
         args = parser.parse_args()
-        scan = Escaneo(args.dominio)
-        scan.nslookupDomain()
-        scan.whoisDomain()
-        scan.reverseIpLookupDomain()
-        scan.subdomainsDomain()
-        print(scan)
+        if args.dominio is None:
+            print("Por favor introduzca el dominio a escanear.\nEjemplo: python3 main.py -d dominio.es")
+        else:
+            scan = Escaneo(args.dominio)
+            scan.nslookupDomain()
+            scan.whoisDomain()
+            scan.reverseIpLookupDomain()
+            scan.subdomainsDomain()
+            print(scan)
         
     except Exception as e:
         print("Excepcion " + str(e))
