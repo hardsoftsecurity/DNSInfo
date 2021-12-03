@@ -1,14 +1,15 @@
 import argparse
-from typing import Text
 import whois
 from nslookup import Nslookup
 from googlesearch import search
 import requests
 import ast
+import shodan
 
 class Escaneo:
-    def __init__(self, dominio):
+    def __init__(self, dominio, apikey):
         self.dominio = dominio
+        self.apikey = apikey
         return
     
     def nslookupDomain(self):
@@ -23,54 +24,130 @@ class Escaneo:
 
     def subdomainsDomain(self):
         self.query = "site:" + self.dominio
-        self.listaResultados = []
         self.subdomainsResult = "".join(str("[-] " + resultado + "\n") for resultado in search(self.query, tld="co.in", num=20, stop=230, pause=2))
 
     def reverseIpLookupDomain(self):
-        self.url = f"https://sonar.omnisint.io/reverse/{self.ip}"
+        url = f"https://sonar.omnisint.io/reverse/{self.ip}"
         try:
-            self.peticion = requests.get(self.url)
-            self.datos = self.peticion.text
-            self.lista = ast.literal_eval(self.datos)
-            self.nuevaLista = []
-            self.nslookupIpReverse = "".join(str("[-] " + dominio + "\n") for dominio in self.lista)
+            peticion = requests.get(url)
+            datos = peticion.text
+            lista = ast.literal_eval(datos)
+            self.nslookupIpReverse = "".join(str("[-] " + dominio + "\n") for dominio in lista)
             
 
         except requests.ConnectionError:
             print("Error")
 
+    def shodanSearch(self):
+        if self.apikey is not None:
+            # Setup the api
+            api = shodan.Shodan(self.apikey)
+
+            # Perform the search
+            query = self.ip
+            hostinfo = api.host(query)
+
+            # Loop through the matches and print each IP
+            if "last_update" in hostinfo:
+                self.ult_update = hostinfo['last_update']
+            if "city" in hostinfo:
+                self.city = hostinfo['city']
+            if "country_name" in hostinfo:
+                self.country = hostinfo['country_name']
+            if "isp" in hostinfo:
+                self.isp = hostinfo['isp']
+            if "org" in hostinfo:
+                self.org = hostinfo['org']
+            listaDatos = []
+            for data in hostinfo['data']:
+                puerto = ""
+                servicio = ""
+                resumen = ""
+                if "port" in data:
+                    puerto = data['port']
+                else:
+                    puerto = ""
+                if "product" in data:
+                    servicio = data['product']
+                else:
+                    servicio = ""
+                if "data" in data:
+                    resumen = data['data']
+                else:
+                    resumen = ""
+                listaDatos.append(str("\n[******************************************************************]\n" +
+                                      "Puerto: " + str(puerto) + " " + str(servicio) + "\n" + str(resumen)))
+            self.scanport = "".join(str(resultado)for resultado in listaDatos)
+            if "vulns" in hostinfo:
+                listaVuln = []
+                for cve in hostinfo['vulns']:
+                    listaVuln.append(str("   [*] CVE: " + str(cve) + "\n"))
+                self.vulns = "".join(str(vulne) for vulne in listaVuln)
+            else:
+                self.vulns = "Vulnerabilidades no encontradas con Shodan."
+
+
+
     def __str__(self):
         mensaje = """
                                 INFORMACIÓN LOCALIZADA
 ========================================================================================
-+ NSLOOKUP: El dominio "{}" tiene la IP "{}"
+[+] NSLOOKUP: El dominio "{}" tiene la IP "{}"
 ========================================================================================
-+ WHOIS: Información recolecada para el dominio "{}"
+[+] WHOIS: Información recolecada para el dominio "{}"
 {}
 ========================================================================================
-+ REVERSE IP LOOKUP: Dominios que residen en el mismo servidor {}
+[+]REVERSE IP LOOKUP: Dominios que residen en el mismo servidor {}
 {}
 ========================================================================================
-+ Busqueda de subdominios con GOOGLE:
+[+] Busqueda de subdominios con GOOGLE:
 {}
 ========================================================================================
+[+] Búsqueda del host en SHODAN:
+[-] Última actualización de los datos: {}
+[-] Datos del proveedor:
+    Organización: {}
+    ISP: {}
+[-] Localización:
+    País: {}
+    Ciudad: {}
+[-] Escaneo de puertos:
+{}
+[-] Vulnerabilidades encontradas:
+{}
+
+
+
         """
-        mensajeFinal = mensaje.format(self.dominio,self.ip,self.dominio,self.w,self.ip,self.nslookupIpReverse,self.subdomainsResult)
+        mensajeFinal = mensaje.format(self.dominio,self.ip,self.dominio,self.w,self.ip,self.nslookupIpReverse,self.subdomainsResult,
+                                      self.ult_update, self.org, self.isp, self.country, self.city, self.scanport, self.vulns)
         return mensajeFinal
 
 def main():
     try:
         parser = argparse.ArgumentParser(description="Script para la extracción pública de información de un dominio.")
         parser.add_argument("-d","--dominio",help="Parámetro utilizado para introducir el dominio.")
+        parser.add_argument("-a","--apikey",help="Parámetro utilizado para especificar la API KEY de Shodan.")
         args = parser.parse_args()
         if args.dominio is None:
-            print("Por favor introduzca el dominio a escanear.\nEjemplo: python3 main.py -d dominio.es")
+            print("""
+DNSInfo - Script utilizado para la extracción pública de información relacionada con los nombres de dominio - Versión 1.0
+
+-d --dominio    Parámetro utilizado para introducir el dominio a escanear.
+-a --apikey     Parámetro utilizado para especificar la API KEY de Shodan.
+-h --help       Parámetro utilizado para ver la descripción del script.
+
+Ejemplos:
+- python3 main.py -d dominio.es
+- python3 main.py -d dominio.es -a APIKEY
+            """)
         else:
-            scan = Escaneo(args.dominio)
+            scan = Escaneo(args.dominio, args.apikey)
             scan.nslookupDomain()
             scan.whoisDomain()
             scan.reverseIpLookupDomain()
             scan.subdomainsDomain()
+            scan.shodanSearch()
             print(scan)
         
     except Exception as e:
