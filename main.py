@@ -39,52 +39,68 @@ class Escaneo:
             print("Error")
 
     def shodanSearch(self):
-        if self.apikey is not None:
-            # Setup the api
-            api = shodan.Shodan(self.apikey)
+        try:
+            if self.apikey is not None:
+                # Setup the api
+                api = shodan.Shodan(self.apikey)
 
-            # Perform the search
-            query = self.ip
-            hostinfo = api.host(query)
-
-            # Loop through the matches and print each IP
-            if "last_update" in hostinfo:
-                self.ult_update = hostinfo['last_update']
-            if "city" in hostinfo:
-                self.city = hostinfo['city']
-            if "country_name" in hostinfo:
-                self.country = hostinfo['country_name']
-            if "isp" in hostinfo:
-                self.isp = hostinfo['isp']
-            if "org" in hostinfo:
-                self.org = hostinfo['org']
-            listaDatos = []
-            for data in hostinfo['data']:
-                puerto = ""
-                servicio = ""
-                resumen = ""
-                if "port" in data:
-                    puerto = data['port']
+                # Perform the search
+                query = self.ip
+                hostinfo = api.host(query)
+                if hostinfo is None:
+                    print("No information available for that IP.")
                 else:
-                    puerto = ""
-                if "product" in data:
-                    servicio = data['product']
-                else:
-                    servicio = ""
-                if "data" in data:
-                    resumen = data['data']
-                else:
-                    resumen = ""
-                listaDatos.append(str("\n[******************************************************************]\n" +
-                                      "Puerto: " + str(puerto) + " " + str(servicio) + "\n" + str(resumen)))
-            self.scanport = "".join(str(resultado)for resultado in listaDatos)
-            if "vulns" in hostinfo:
-                listaVuln = []
-                for cve in hostinfo['vulns']:
-                    listaVuln.append(str("   [*] CVE: " + str(cve) + "\n"))
-                self.vulns = "".join(str(vulne) for vulne in listaVuln)
+                    # Loop through the matches and print each IP
+                    if "last_update" in hostinfo:
+                        self.ult_update = hostinfo['last_update']
+                    if "city" in hostinfo:
+                        self.city = hostinfo['city']
+                    if "country_name" in hostinfo:
+                        self.country = hostinfo['country_name']
+                    if "isp" in hostinfo:
+                        self.isp = hostinfo['isp']
+                    if "org" in hostinfo:
+                        self.org = hostinfo['org']
+                    listaDatos = []
+                    for data in hostinfo['data']:
+                        puerto = ""
+                        servicio = ""
+                        resumen = ""
+                        if "port" in data:
+                            puerto = data['port']
+                        else:
+                            puerto = ""
+                        if "product" in data:
+                            servicio = data['product']
+                        else:
+                            servicio = ""
+                        if "data" in data:
+                            resumen = data['data']
+                        else:
+                            resumen = ""
+                        listaDatos.append(str("\n[******************************************************************]\n" +
+                                            "Puerto: " + str(puerto) + " " + str(servicio) + "\n" + str(resumen)))
+                    self.scanport = "".join(str(resultado)for resultado in listaDatos)
+                    if "vulns" in hostinfo:
+                        listaVuln = []
+                        for cve in hostinfo['vulns']:
+                            listaVuln.append(str("   [*] CVE: " + str(cve) + "\n"))
+                        self.vulns = "".join(str(vulne) for vulne in listaVuln)
+                    else:
+                        self.vulns = "Vulnerabilidades no encontradas con Shodan."
+        except shodan.APIError as shodanError:
+            if str(shodanError) == "No information available for that IP.":
+                print("No information available for that IP.")
+                self.scanport = "No hay información."
+                self.vulns = "No hay información."
+                self.ult_update = "No hay información."
+                self.org = "No hay información."
+                self.isp = "No hay información."
+                self.country = "No hay información."
+                self.city = "No hay información."
+                pass
             else:
-                self.vulns = "Vulnerabilidades no encontradas con Shodan."
+                print("Excepcion " + str(shodanError))
 
 
 
@@ -120,7 +136,7 @@ class Escaneo:
 
         """
         mensajeFinal = mensaje.format(self.dominio,self.ip,self.dominio,self.w,self.ip,self.nslookupIpReverse,self.subdomainsResult,
-                                      self.ult_update, self.org, self.isp, self.country, self.city, self.scanport, self.vulns)
+                                        self.ult_update, self.org, self.isp, self.country, self.city, self.scanport, self.vulns)
         return mensajeFinal
 
 def main():
