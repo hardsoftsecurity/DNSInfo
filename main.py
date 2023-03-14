@@ -27,11 +27,11 @@ class Escaneo:
         self.subdomainsResult = "".join(str("[-] " + resultado + "\n") for resultado in search(self.query, tld="co.in", num=20, stop=230, pause=2))
 
     def reverseIpLookupDomain(self):
-        url = f"https://sonar.omnisint.io/reverse/{self.ip}"
+        url = f"https://api.hackertarget.com/reverseiplookup/?q={self.ip}"
         try:
             peticion = requests.get(url)
             datos = peticion.text
-            lista = ast.literal_eval(datos)
+            lista = datos.split("\n")
             self.nslookupIpReverse = "".join(str("[-] " + dominio + "\n") for dominio in lista)
             
 
@@ -40,7 +40,7 @@ class Escaneo:
 
     def shodanSearch(self):
         try:
-            if self.apikey is not None:
+            if self.apikey is not None or self.apikey != "":
                 # Setup the api
                 api = shodan.Shodan(self.apikey)
 
